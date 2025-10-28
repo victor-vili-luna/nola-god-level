@@ -15,7 +15,6 @@ from faker import Faker
 fake = Faker('pt_BR')
 
 # Configurations
-BRAND_ID = 1
 SALES_STATUS = ['COMPLETED', 'CANCELLED']
 STATUS_WEIGHTS = [0.95, 0.05]  # 95% completed
 CATEGORIES_PRODUCTS = ['Burgers', 'Pizzas', 'Pratos', 'Combos', 'Sobremesas', 'Bebidas']
@@ -86,6 +85,13 @@ def setup_base_data(conn):
     """Create brands, channels, payment types"""
     print("Setting up base data...")
     cursor = conn.cursor()
+
+    # Brand
+    cursor.execute(
+        "INSERT INTO brands (name) VALUES (%s) RETURNING id",
+        ('Challenge Foods',)
+    )
+    brand_id = cursor.fetchone()[0]
     
     # Sub-brands
     sub_brands = ['Challenge Burger', 'Challenge Pizza', 'Challenge Sushi']
@@ -93,7 +99,7 @@ def setup_base_data(conn):
     for sb in sub_brands:
         cursor.execute(
             "INSERT INTO sub_brands (brand_id, name) VALUES (%s, %s) RETURNING id",
-            (BRAND_ID, sb)
+            (brand_id, sb)
         )
         sub_brand_ids.append(cursor.fetchone()[0])
     
@@ -103,7 +109,7 @@ def setup_base_data(conn):
         cursor.execute("""
             INSERT INTO channels (brand_id, name, description, type)
             VALUES (%s, %s, %s, %s) RETURNING id
-        """, (BRAND_ID, name, f'Canal {name}', ch_type))
+        """, (brand_id, name, f'Canal {name}', ch_type))
         channel_ids.append({
             'id': cursor.fetchone()[0], 
             'name': name, 
@@ -115,15 +121,15 @@ def setup_base_data(conn):
     for pt in PAYMENT_TYPES_LIST:
         cursor.execute(
             "INSERT INTO payment_types (brand_id, description) VALUES (%s, %s)",
-            (BRAND_ID, pt)
+            (brand_id, pt)
         )
     
     conn.commit()
     print(f"✓ Base data: {len(sub_brand_ids)} sub-brands, {len(channel_ids)} channels")
-    return sub_brand_ids, channel_ids
+    return brand_id, sub_brand_ids, channel_ids
 
 
-def generate_stores(conn, sub_brand_ids, num_stores=50):
+def generate_stores(conn, brand_id, sub_brand_ids, num_stores=50):
     """Generate realistic stores"""
     print(f"Generating {num_stores} stores...")
     cursor = conn.cursor()
@@ -151,7 +157,7 @@ def generate_stores(conn, sub_brand_ids, num_stores=50):
             ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
         """, (
-            BRAND_ID, sub_brand_id,
+            brand_id, sub_brand_id,
             f"{fake.company()} - {city}",
             city, fake.estado_sigla(), fake.bairro(),
             fake.street_name(), random.randint(10, 9999),
@@ -168,7 +174,7 @@ def generate_stores(conn, sub_brand_ids, num_stores=50):
     return stores
 
 
-def generate_products_and_items(conn, sub_brand_ids, num_products=500, num_items=200):
+def generate_products_and_items(conn, brand_id, sub_brand_ids, num_products=500, num_items=200):
     """Generate products, items, and option groups"""
     print(f"Generating {num_products} products and {num_items} items...")
     cursor = conn.cursor()
@@ -182,7 +188,7 @@ def generate_products_and_items(conn, sub_brand_ids, num_products=500, num_items
         cursor.execute("""
             INSERT INTO categories (brand_id, name, type)
             VALUES (%s, %s, 'P') RETURNING id
-        """, (BRAND_ID, cat_name))
+        """, (brand_id, cat_name))
         cat_id = cursor.fetchone()[0]
         
         # Products in category
@@ -204,7 +210,7 @@ def generate_products_and_items(conn, sub_brand_ids, num_products=500, num_items
             cursor.execute("""
                 INSERT INTO products (brand_id, sub_brand_id, category_id, name, pos_uuid)
                 VALUES (%s, %s, %s, %s, %s) RETURNING id
-            """, (BRAND_ID, sub_brand_id, cat_id, name, f"prod_{cat_id}_{i}"))
+            """, (brand_id, sub_brand_id, cat_id, name, f"prod_{cat_id}_{i}"))
             
             products.append({
                 'id': cursor.fetchone()[0],
@@ -220,7 +226,7 @@ def generate_products_and_items(conn, sub_brand_ids, num_products=500, num_items
         cursor.execute("""
             INSERT INTO categories (brand_id, name, type)
             VALUES (%s, %s, 'I') RETURNING id
-        """, (BRAND_ID, cat_name))
+        """, (brand_id, cat_name))
         cat_id = cursor.fetchone()[0]
         
         # Items in category - use realistic names
@@ -234,7 +240,7 @@ def generate_products_and_items(conn, sub_brand_ids, num_products=500, num_items
                 cursor.execute("""
                     INSERT INTO items (brand_id, sub_brand_id, category_id, name, pos_uuid)
                     VALUES (%s, %s, %s, %s, %s) RETURNING id
-                """, (BRAND_ID, sub_brand_id, cat_id, item_name, f"item_{cat_id}_{item_name[:10]}"))
+                """, (brand_id, sub_brand_id, cat_id, item_name, f"item_{cat_id}_{item_name[:10]}"))
                 
                 items.append({
                     'id': cursor.fetchone()[0],
@@ -250,7 +256,7 @@ def generate_products_and_items(conn, sub_brand_ids, num_products=500, num_items
                 cursor.execute("""
                     INSERT INTO items (brand_id, sub_brand_id, category_id, name, pos_uuid)
                     VALUES (%s, %s, %s, %s, %s) RETURNING id
-                """, (BRAND_ID, sub_brand_id, cat_id, name, f"item_{cat_id}_{i}"))
+                """, (brand_id, sub_brand_id, cat_id, name, f"item_{cat_id}_{i}"))
                 
                 items.append({
                     'id': cursor.fetchone()[0],
@@ -264,7 +270,7 @@ def generate_products_and_items(conn, sub_brand_ids, num_products=500, num_items
         cursor.execute("""
             INSERT INTO option_groups (brand_id, name)
             VALUES (%s, %s) RETURNING id
-        """, (BRAND_ID, og_name))
+        """, (brand_id, og_name))
         option_groups.append(cursor.fetchone()[0])
     
     conn.commit()
@@ -682,10 +688,10 @@ def main():
     conn = get_db_connection(args.db_url)
     
     try:
-        sub_brand_ids, channels = setup_base_data(conn)
-        stores = generate_stores(conn, sub_brand_ids, args.stores)
+        brand_id, sub_brand_ids, channels = setup_base_data(conn)
+        stores = generate_stores(conn, brand_id, sub_brand_ids, args.stores)
         products, items, option_groups = generate_products_and_items(
-            conn, sub_brand_ids, args.products, args.items
+            conn, brand_id, sub_brand_ids, args.products, args.items
         )
         customers = generate_customers(conn, args.customers)
         
