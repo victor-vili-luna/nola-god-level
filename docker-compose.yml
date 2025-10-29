@@ -38,10 +38,12 @@ services:
       context: ./frontend
     container_name: godlevel-frontend
     ports:
-      - "3000:80"
-    depends_on:
-      - backend
-
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      
+      
   data-generator:
     build:
       context: .
