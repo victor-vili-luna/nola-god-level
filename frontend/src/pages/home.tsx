@@ -1,10 +1,9 @@
-import React from 'react';
+import AppSidebar from '../components/app-sidebar/sidebar';
 
-const Home = () => {
+const Home: React.FC = () => {
+
   return (
-    <div>
-      <h2>Dashboard</h2>
-    </div>
+    <AppSidebar />
   );
 };
 
